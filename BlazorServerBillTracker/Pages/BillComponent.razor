@@ -1,0 +1,87 @@
+﻿@page "/bills"
+@inject IBillService billService
+@inject NavigationManager navigationManager
+@inject IJSRuntime js
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info h5 fw-bold text-white">Manage Bill Data</div>
+            <div class="card-body">
+                <SfGrid DataSource="@Bills" Toolbar="@Toolbaritems" @ref="Grid">
+                    <GridEvents OnBeginEdit="BeginEditHandler" OnActionBegin="ActionBeginHandler" TValue="Bill"></GridEvents>
+                    <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true"></GridEditSettings>
+                    <GridColumns>
+                        <GridColumn Field=@nameof(Bill.Name) HeaderText="Bill Name" TextAlign="TextAlign.Center" Width="120"></GridColumn>
+                        <GridColumn Field=@nameof(Bill.BillPeriodId) HeaderText="Bill Period" Width="100">
+                            <Template>
+                                 @((context as Bill).BillPeriod!.PeriodName ?? null) 
+                            </Template>
+                        </GridColumn>
+                        <GridColumn Field=@nameof(Bill.Amount) HeaderText=" Bill Amount (GHS)" Format="C" TextAlign="TextAlign.Center" Width="120"></GridColumn>
+                        <GridColumn Field=@nameof(Bill.StartingDate) HeaderText="Starting Data" Format="d" Type="ColumnType.DateOnly" TextAlign="TextAlign.Center" Width="150"> </GridColumn>
+                        <GridColumn Field=@nameof(Bill.Active) HeaderText="Bill Active" TextAlign="TextAlign.Center" Width="120"></GridColumn>
+                    </GridColumns>
+                </SfGrid>
+            </div>
+            <div class="card-footer">
+                @@Netcode-Hub
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    SfGrid<Bill> Grid;
+    private List<Object> Toolbaritems = new List<Object>() { "Add", "Edit", "Delete", "Cancel", "Search" };
+    public List<Bill> Bills { get; set; } = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var bills = await billService.GetBillsAsync();
+        if (bills is null) return;
+
+        if (Bills is not null) Bills.Clear();
+
+        Bills = bills;
+
+
+    }
+    //When toolbar item is clicked
+    public async Task ActionBeginHandler(ActionEventArgs<Bill> Args)
+    {
+        try
+        {
+            if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Add))
+                navigationManager.NavigateTo("add-bill",true);
+
+            if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Delete))
+            {
+                bool confirm = await js.InvokeAsync<bool>("window.confirm", "Are you sure you want to really delete?");
+                if (confirm)
+                {
+                    await billService.DeleteBillAsync(Args.RowData.Id);
+                    await LoadData();
+                    await Grid.Refresh();
+                }
+            }
+
+        }
+        catch (Exception) { }
+    }
+
+    public void BeginEditHandler(BeginEditArgs<Bill> args)
+    {
+        navigationManager.NavigateTo($"add-bill/{args.RowData.Id}",true);
+    }
+
+
+
+
+}

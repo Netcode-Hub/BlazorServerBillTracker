@@ -1,0 +1,193 @@
+﻿@page "/"
+@inject IBillService billService
+@inject NavigationManager navigationManager
+
+@if (DueBills.Count <= 0)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="alert alert-warning">It seems you don't have any due bill</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var bill in DueBills.Where(_ => _.Paid == false).ToList().OrderBy(_ => _.BillType))
+        {
+            int billid = bill.BillId;
+            DateTime dt = bill.DueDate.Date;
+            <div class="col-md-auto">
+                <div class="card">
+                    <div class="card-header bg-info">
+                        <table class="table table-success">
+                            <tbody>
+                                <tr> <td colspan="2" class="text-center fw-bold"> @bill.Name</td> </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-primary table-hover">
+                            <tbody>
+                                <tr>
+                                    <td>Bill Type</td>
+                                    <td>@bill.BillType</td>
+                                </tr>
+
+                                <tr>
+                                    <td> @((bill.BillType!.ToLower().Contains("monthly") ? " Month" : " Week")) </td>
+                                    <td>
+                                        @{
+                                            System.Globalization.DateTimeFormatInfo mfi = new System.Globalization.DateTimeFormatInfo();
+                                            int no = bill.DueDate.Month;
+                                            string name = mfi.GetMonthName(no == 1 ? 12 : no - 1);
+                                        }
+                                        @((bill.BillType!.ToLower().Contains("monthly") ? name + ", " + bill.DueDate.Year : bill.DueDate.ToShortDateString()))
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Due Date</td>
+                                    <td>@bill.DueDate.ToShortDateString()</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" class="fw-bold">Due Amount : @bill.Amount.ToString("GHS ##.##")</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-info">
+                        <table class="table table-danger">
+                            <tbody>
+                                <tr>
+                                    <td> <label class="form-label">UnPaid Bill</label></td>
+                                    <td> <SfSwitch @bind-Checked="@bill.Paid" OffLabel="Bill" TChecked="bool" @onclick="(()=> PayBill(billid,dt))"></SfSwitch></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (DueBills.Where(_ => _.Paid == false).Count() > 0)
+{
+    <div class="row mt-5 mb-5">
+        <div class="col-md-6">
+            <div class="card text-center">
+                <div class="card-header alert alert-info">
+                    <p class="display-6">Total Bill: @DueBills!.Where(_=>_.Paid == false).Sum(_=>_.Amount).ToString("GHS ##.##")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (BillsHistory.Count() <= 0)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="alert alert-danger">No Recent Payment History</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header h5 bg-info fw-bold text-white">Bill Payment History</div>
+                <div class="row" style="padding-left: 20px;">
+                    @foreach (var bill in BillsHistory.OrderBy(_ => _.DueDate))
+                    {
+                        <div class="col-md-auto mt-2 mb-2">
+                            <div class="card">
+                                <div class="card-header bg-info">
+                                    <table class="table table-success">
+                                        <tbody>
+                                            <tr> <td colspan="2" class="text-center fw-bold"> @bill.Name</td> </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-primary table-hover">
+                                        <tbody>
+                                            <tr>
+                                                <td>Bill Type</td>
+                                                <td>@bill.BillType</td>
+                                            </tr>
+
+                                            <tr>
+                                                <td> Month </td>
+                                                <td>
+                                                    @{
+                                                        System.Globalization.DateTimeFormatInfo mfi = new System.Globalization.DateTimeFormatInfo();
+                                                        int no = bill.DueDate.Month;
+                                                        string name = mfi.GetMonthName(no == 1 ? 12 : no - 1);
+                                                    }
+                                                    @(name + ", " + bill.DueDate.Year)
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Due Date</td>
+                                                <td>@bill.DueDate.ToShortDateString()</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" class="fw-bold">Due Amount : @bill.Amount.ToString("GHS ##.##")</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="card-footer bg-info">
+                                    <table class="table table-danger">
+                                        <tbody>
+                                            <tr>
+                                                <td> <label class="form-label"> Bill Status</label></td>
+                                                <td> <SfSwitch @bind-Checked="@bill.Paid" OnLabel="Paid" TChecked="bool"></SfSwitch></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="card-footer">
+                    @@Netcode-Hub
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+
+
+
+@code
+{
+
+    public List<Bill> Bills { get; set; } = new();
+    public List<DueBill> DueBills { get; set; } = new();
+    public List<BillHistory> BillsHistory { get; set; } = new();
+    protected override async Task OnInitializedAsync()
+    {
+        await GetEntireBills();
+    }
+
+    private async Task GetEntireBills()
+    {
+        Bills = await billService.GetBillsAsync();
+        DueBills = await billService.GetDueBillsAsync();
+        BillsHistory = await billService.GetBillsHistoryAsync();
+    }
+
+    private async void PayBill(int id, DateTime date)
+    {
+        await billService.PayBillAsync(id, date);
+        await GetEntireBills();
+        navigationManager.NavigateTo("/", true);
+    }
+}
+

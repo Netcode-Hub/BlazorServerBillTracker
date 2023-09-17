@@ -1,0 +1,157 @@
+﻿@page "/add-bill"
+@page "/add-bill/{Id:int}"
+@inject NavigationManager navigationManager
+@inject IBillService billService
+
+<SfDialog Width="300" ShowCloseIcon="false" @bind-Visible="Visibility" AllowPrerender="false" IsModal="true">
+    <DialogTemplates>
+        <Header> Provide Bill Details <i class="oi oi-x text-end float-end" @onclick="GotoHome" style="margin-left: 50px; cursor:pointer"></i></Header>
+        <Content>
+            <EditForm Model="BillObject" OnValidSubmit="SaveObject">
+                @if (Error is not null)
+                {
+                    <span class="text-danger">@Error</span>
+                }
+
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <ValidationSummary></ValidationSummary>
+                <div class="card">
+                    <div class="card-header">@Title</div>
+                    <div class="card-body">
+                        <div class="form-control">
+                            <SfTextBox Placeholder="Add Bill Name" @bind-Value="BillObject.Name" FloatLabelType="@FloatLabelType.Auto"></SfTextBox>
+                            <ValidationMessage For="(()=> BillObject.Name)" />
+                        </div>
+                        <div class="form-control">
+                            @if (BillObject.Id > 0)
+                            {
+                                string setValue = BillObject!.BillPeriod!.PeriodName;
+                                <SfDropDownList TValue="string" TItem="BillPeriod" Placeholder="@setValue" DataSource="@BillPeriods">
+                                    <DropDownListFieldSettings Value="Id" Text="PeriodName"></DropDownListFieldSettings>
+                                    <DropDownListEvents TValue="string" TItem="BillPeriod" ValueChange="OnValueChange"></DropDownListEvents>
+                                </SfDropDownList>
+                            }
+                            else
+                            {
+                                <SfDropDownList TValue="string" TItem="BillPeriod" Placeholder="Select Bill Period" DataSource="@BillPeriods">
+                                    <DropDownListFieldSettings Value="Id" Text="PeriodName"></DropDownListFieldSettings>
+                                    <DropDownListEvents TValue="string" TItem="BillPeriod" ValueChange="OnValueChange"></DropDownListEvents>
+                                </SfDropDownList>
+                            }
+                            <ValidationMessage For="(()=> BillObject.BillPeriodId)" />
+                        </div>
+                        <div class="form-control mt-2">
+                            <SfNumericTextBox TValue="decimal" @bind-Value="BillObject.Amount" Min="0" Format="###.##" FloatLabelType="@FloatLabelType.Auto" Placeholder="Input Bill Amount"></SfNumericTextBox>
+                            <ValidationMessage For="(()=> BillObject.Amount)" />
+                        </div>
+                        <div class="form-control mt-2">
+                            <SfCheckBox Label="Active" @bind-Checked="BillObject.Active"></SfCheckBox>
+                        </div>
+                        <div class="form-control mt-2">
+                            @if (BillObject.Id > 0)
+                            {
+                                string setValue = BillObject!.StartingDate.ToString();
+                                <SfDatePicker TValue="DateTime?" Placeholder='@setValue' Format="d" Min="DateTime.Now">
+                                    <DatePickerEvents TValue="DateTime?" ValueChange="ValueChangeHandler"></DatePickerEvents>
+                                </SfDatePicker>
+                            }
+                            else
+                            {
+                                <SfDatePicker TValue="DateTime?" Placeholder='Choose Start Date' Format="d" Min="DateTime.Now">
+                                    <DatePickerEvents TValue="DateTime?" ValueChange="ValueChangeHandler"></DatePickerEvents>
+                                </SfDatePicker>
+                            }
+                            <ValidationMessage For="(()=> BillObject.StartingDate)" />
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        @if (Id > 0)
+                        {
+                            <button class="btn btn-outline-warning text-center" type="submit">Update Bill</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-primary text-center" type="submit">Add Bill</button>
+                        }
+                    </div>
+                </div>
+            </EditForm>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+@code {
+
+    public string Title { get; set; } = string.Empty;
+    [Parameter] public int Id { get; set; }
+    public Bill BillObject { get; set; } = new();
+    public List<BillPeriod> BillPeriods { get; set; } = new();
+    public string? Error { get; set; }
+    public bool Visibility { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        BillPeriods = await billService.GetPeriodsAsync();
+        Visibility = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id <= 0)
+        {
+            Title = "Add Bill";
+            return;
+        }
+
+        Title = "Update Bill";
+        BillObject = await billService.GetBillAsync(Id);
+    }
+
+    // Get Selected value from Dropdown
+    public void OnValueChange(ChangeEventArgs<string, BillPeriod> args)
+    {
+        BillObject.BillPeriodId = int.Parse(args.Value);
+    }
+
+    private async Task SaveObject()
+    {
+
+        if (BillObject.Amount <= 0)
+            Error = "Amount is required";
+
+        if (BillObject.BillPeriodId <= 0)
+            Error = "Period is required";
+
+        if (BillObject.Id > 0)
+        {
+            var result = await billService.UpdateBillAsync(BillObject);
+            if (result.code <= 0)
+            {
+                Error = result.message;
+                return;
+            }
+        }
+
+        if (BillObject.Id == 0)
+        {
+            var result = await billService.AddBillAsync(BillObject);
+            if (result.code <= 0)
+            {
+                Error = result.message;
+                return;
+            }
+        }
+
+        BillObject = new Bill();
+        navigationManager.NavigateTo("bills");
+    }
+
+    private void GotoHome()
+    {
+        navigationManager.NavigateTo("/bills");
+    }
+
+    public void ValueChangeHandler(ChangedEventArgs<DateTime?> args)
+    {
+        BillObject.StartingDate = args.Value.Value.Date;
+    }
+}
